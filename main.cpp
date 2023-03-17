@@ -14,6 +14,8 @@ static GDBusConnection *g_dbus = nullptr;
 static xcb_connection_t *g_conn = nullptr;
 static xcb_window_t g_root = 0;
 
+static GMainLoop *g_loop = nullptr;
+
 static guint g_timeoutOnXrandrChange = 0;
 
 static bool isLidClosedOnBattery(bool &hasLidOut)
@@ -178,7 +180,10 @@ static gboolean processXcbEvents(gint fd, GIOCondition condition, gpointer)
     if (!e)
     {
         if (xcb_connection_has_error(g_conn))
+        {
+            g_main_loop_quit(g_loop);
             return false;
+        }
         return true;
     }
 
@@ -226,9 +231,9 @@ int main()
         processDisplays(&hasLid);
         if (hasLid)
         {
-            auto mainLoop = g_main_loop_new(nullptr, false);
-            g_main_loop_run(mainLoop);
-            g_object_unref(mainLoop);
+            g_loop = g_main_loop_new(nullptr, false);
+            g_main_loop_run(g_loop);
+            g_object_unref(g_loop);
         }
     }
 
