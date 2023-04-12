@@ -110,7 +110,7 @@ static void processDisplays(bool *hasLidOut = nullptr)
         {
             // TODO Use API instead of command line
             const auto newValue = (nExternalDisplays > 0)
-                ? 3 // lock screen
+                ? 4 // do nothing
                 : 1 // suspend
             ;
             gchar *ret = nullptr;
