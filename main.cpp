@@ -4,6 +4,8 @@
 #include <gio/gio.h>
 #include <glib-unix.h>
 
+#include <xfconf/xfconf.h>
+
 #include <algorithm>
 #include <string>
 
@@ -13,6 +15,8 @@ static GDBusConnection *g_dbus = nullptr;
 
 static xcb_connection_t *g_conn = nullptr;
 static xcb_window_t g_root = 0;
+
+static XfconfChannel *g_xfconfChannel = nullptr;
 
 static GMainLoop *g_loop = nullptr;
 
@@ -108,34 +112,14 @@ static void processDisplays(bool *hasLidOut = nullptr)
 
         if (hasLaptopDisplay)
         {
-            // TODO Use API instead of command line
-            const auto newValue = (nExternalDisplays > 0)
+            const guint32 newValue = (nExternalDisplays > 0)
                 ? 4 // do nothing
                 : 1 // suspend
             ;
-            gchar *ret = nullptr;
-            int value = -1;
-            g_spawn_command_line_sync(
-                "xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/lid-action-on-battery",
-                &ret,
-                nullptr,
-                nullptr,
-                nullptr
-            );
-            if (ret)
-            {
-                try
-                {
-                    value = stoi(ret);
-                } catch (...) {}
-                g_free(ret);
-            }
+            const guint32 value = xfconf_channel_get_uint(g_xfconfChannel, "lid-action-on-battery", ~0u);
             if (value != newValue)
             {
-                g_spawn_command_line_async(
-                    ("xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/lid-action-on-battery -t int -s " + to_string(newValue)).c_str(),
-                    nullptr
-                );
+                xfconf_channel_set_uint(g_xfconfChannel, "lid-action-on-battery", newValue);
                 if (lidClosedOnBattery && nExternalDisplays == 0)
                 {
                     g_variant_unref(g_dbus_connection_call_sync(
@@ -200,6 +184,9 @@ static gboolean processXcbEvents(gint fd, GIOCondition condition, gpointer)
 
 int main()
 {
+    if (!xfconf_init(nullptr))
+        return -1;
+
     g_dbus = g_bus_get_sync(G_BUS_TYPE_SYSTEM, nullptr, nullptr);
     if (!g_dbus)
         return -1;
@@ -210,6 +197,8 @@ int main()
         g_dbus_connection_close_sync(g_dbus, nullptr, nullptr);
         return -1;
     }
+
+    g_xfconfChannel = xfconf_channel_new_with_property_base("xfce4-power-manager", "/xfce4-power-manager/");
 
     auto xcbSource = g_unix_fd_add(xcb_get_file_descriptor(g_conn), G_IO_IN, processXcbEvents, nullptr);
 
@@ -238,6 +227,8 @@ int main()
     }
 
     stopOnTimeoutOnXrandrChanged();
+
+    g_object_unref(g_xfconfChannel);
 
     g_source_remove(xcbSource);
     xcb_disconnect(g_conn);

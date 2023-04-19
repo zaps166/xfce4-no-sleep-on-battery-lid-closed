@@ -10,6 +10,7 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GIO REQUIRED IMPORTED_TARGET gio-unix-2.0)
 pkg_check_modules(X11 REQUIRED IMPORTED_TARGET xcb xcb-randr)
+pkg_check_modules(Xfconf REQUIRED IMPORTED_TARGET libxfconf-0)
 
 add_executable(${PROJECT_NAME}
     main.cpp
@@ -19,6 +20,7 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE
     PkgConfig::GIO
     PkgConfig::X11
+    PkgConfig::Xfconf
 )
 
 configure_file(
